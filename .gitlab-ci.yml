@@ -1,0 +1,20 @@
+stages:
+  - deploy
+
+# variables:
+  # DEV_SSH_PRIVATE_KEY: ""  # Replace with your actual variable name
+
+deploy:
+  stage: deploy
+  before_script:
+        - 'command -v ssh-agent >/dev/null || ( apk add --update openssh )' 
+        - eval $(ssh-agent -s)
+        - echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+        - mkdir -p ~/.ssh
+        - chmod 700 ~/.ssh
+        - ssh-keyscan $DEV_IP_ADDRESS >> ~/.ssh/known_hosts
+        - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh -o StrictHostKeyChecking=no $DEV_SERVER_USER@$DEV_IP_ADDRESS "echo 'SSH connectivity test successful'; cd $DEV_DEPLOYMENT_PATH && git stash && git pull origin main && docker build -t $DOCKER_REGISTRY_USER/$DOCKER_IMAGE_NAME . && docker login -u $DOCKER_REGISTRY_USER -p $DOCKER_REGISTRY_PASSWORD && docker push $DOCKER_REGISTRY_USER/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG && kubectl get pods"
+  only:
+    - main
